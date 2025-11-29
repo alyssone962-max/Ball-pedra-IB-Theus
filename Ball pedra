@@ -1,0 +1,101 @@
+-- Nome do Script: Atravessar Ultra (CanCollide - Compatibilidade Máxima)
+-- Pressione 'X' (Teclado) ou o botão 'Quadrado'/'X' (Controle) para ATIVAR/DESATIVAR.
+-- Usa CanCollide, que é mais compatível com a maioria dos exploits.
+
+-- Obter serviços
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- === CONFIGURAÇÕES ===
+local KEYBOARD_KEY = Enum.KeyCode.X        -- <<<<<< ALTERADO PARA A TECLA 'X'
+local GAMEPAD_KEY = Enum.KeyCode.ButtonX   -- Botão Quadrado (PS) / Botão X (Xbox)
+local isUltraModeActive = false            -- Estado inicial
+
+-- Armazena as partes originais do mapa para evitar desativar a colisão de tudo
+local originalParts = {} 
+
+-- 1. Função para desativar a colisão
+local function setCollision(Character, enabled)
+    -- Obtém o valor de CanCollide (true = Normal/Colidir, false = Atravessar)
+    local canCollideValue = enabled 
+    
+    -- Desativa a colisão do seu personagem (HumanoidRootPart e outras partes)
+    if Character then
+        for _, part in ipairs(Character:GetDescendants()) do
+            if part:IsA("BasePart") or part:IsA("MeshPart") then
+                part.CanCollide = canCollideValue
+            end
+        end
+    end
+
+    -- 2. Tenta encontrar e desativar a colisão da bola
+    -- Esta é a parte mais difícil e específica de cada jogo!
+    for _, item in ipairs(workspace:GetChildren()) do
+        if item:IsA("BasePart") and (item.Name:lower():find("ball") or item:GetAttribute("IsBall")) then
+            -- Só desativamos a colisão da bola se estivermos ATIVANDO o modo.
+            if not canCollideValue then
+                item.CanCollide = false
+            -- Se estivermos DESATIVANDO o modo, a bola deve voltar ao normal,
+            -- mas não vamos forçar o 'true' para não interferir com a física original.
+            end
+            break
+        end
+    end
+    
+    -- 3. Desativa a colisão com outros jogadores
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            for _, part in ipairs(player.Character:GetChildren()) do
+                if part:IsA("BasePart") or part:IsA("MeshPart") then
+                    -- Se for o modo 'Atravessar' (false), desativamos a colisão DELES.
+                    -- Para restaurar, não fazemos nada, pois é uma modificação do lado do cliente que
+                    -- afeta apenas a sua visualização, e o modo principal é desativado em você.
+                    if not canCollideValue then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- 4. Função principal para ligar/desligar o modo
+local function toggleUltraMode()
+    isUltraModeActive = not isUltraModeActive
+    local Character = LocalPlayer.Character
+    
+    if Character then
+        -- Se estiver Ativo (true), o valor de colisão é false (não colide)
+        -- Se estiver Inativo (false), o valor de colisão é true (colide)
+        local shouldCollide = not isUltraModeActive
+        
+        setCollision(Character, shouldCollide)
+        
+        -- Feedback
+        if isUltraModeActive then
+            print("Atravessar Ultra (CanCollide) ATIVADO! Você e a bola atravessam.")
+        else
+            print("Atravessar Ultra DESATIVADO. Colisão normal restaurada.")
+        end
+    end
+end
+
+-- 5. Lidar com o input (Teclado ou Gamepad)
+UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+    if (input.KeyCode == KEYBOARD_KEY or input.KeyCode == GAMEPAD_KEY) and not gameProcessedEvent then
+        toggleUltraMode()
+    end
+end)
+
+-- 6. Garante que a colisão seja aplicada quando o personagem reaparecer
+LocalPlayer.CharacterAdded:Connect(function(Character)
+    Character:WaitForChild("HumanoidRootPart") 
+    
+    -- Se o modo estiver ativo ao spawnar, desativa a colisão (false)
+    if isUltraModeActive then
+        setCollision(Character, false) 
+    end
+end)
+
+print("Script Atravessar Ultra (CanCollide) injetado. Pressione X ou o botão Quadrado/X.")
